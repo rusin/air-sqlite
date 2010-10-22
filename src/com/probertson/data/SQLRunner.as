@@ -29,17 +29,25 @@ package com.probertson.data
 	import com.probertson.data.sqlRunnerClasses.PendingStatement;
 	import com.probertson.data.sqlRunnerClasses.StatementCache;
 	
+	import flash.data.SQLConnection;
+	import flash.data.SQLMode;
 	import flash.data.SQLStatement;
-	import flash.events.FullScreenEvent;
 	import flash.filesystem.File;
+	import flash.utils.ByteArray;
 	
 	public class SQLRunner 
 	{
 		// ------- Constructor -------
 		
-		public function SQLRunner(databaseFile:File, maxPoolSize:int=5) 
+		public function SQLRunner(databaseFile:File, maxPoolSize:int=5, encryptionKey:ByteArray=null) 
 		{
-			_connectionPool = new ConnectionPool(databaseFile, maxPoolSize);
+			// First thing, check to see if the database file exists, if it does NOT, then 
+			// create it immediately, not async, so that no calls are executed before it is created
+			if(!databaseFile.exists) {
+				initializeDatabase(databaseFile, encryptionKey);
+			}
+			
+			_connectionPool = new ConnectionPool(databaseFile, maxPoolSize, encryptionKey);
 			// create this cache object ahead of time to avoid the overhead
 			// of checking if it's null each time execute() is called.
 			// Other cache objects won't be needed nearly as much, so 
@@ -189,6 +197,18 @@ package com.probertson.data
 		public function close(resultHandler:Function, errorHandler:Function=null):void
 		{
 			_connectionPool.close(resultHandler, errorHandler);
+		}
+		
+		// ------- Private methods -------
+		
+		/**
+		 * Creates a database file and closes its open connection immediatly (non async) 
+		 * This is used for when a user passes in a non existant db file
+		 */		
+		public function initializeDatabase(databaseFile:File, encryptionKey:ByteArray = null):void {
+			var conn:SQLConnection = new SQLConnection();
+			conn.open(databaseFile, SQLMode.CREATE, false, 1024, encryptionKey);
+			conn.close();
 		}
 	}
 }
